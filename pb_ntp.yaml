@@ -1,0 +1,84 @@
+---
+- name: 'Staticly configure ntp server'
+  hosts: servers
+  become: true
+  gather_facts: true
+
+
+  tasks:
+    - name: 'Install NTP'
+      #apt: pkg=ntp state=present
+      # apt install ntp server bla bla
+      apt:
+        name: ntp
+        update_cache: yes
+
+    - name: 'Set timezone'
+      # ntp app set Chicago bla bla
+      shell:
+        cmd: 'echo {{ ntp_timezone }} > /etc/timezone'
+      when: ntp_timezone is defined
+
+    
+    #- name: 'Test writing text to a file'
+    # Commented out for now but if the timezone changing task above doesn't work, 
+    #  I'll use this to test the echo command without the host_var yaml file.
+      # This is a test to see if I can replace text in a file that already exists.
+      #shell: 
+        #cmd: 'echo "America/Chicago" > /home/brian/timezone'
+
+    #- name: 'Set time source'
+      #Probably need to tell server to use ntp as time source 
+
+
+
+    # Commenting out Duplicate
+    #- name: 'start ntp'
+    #  service: name=ntp state=started enabled=true
+
+    - name: 'Set ntp server'
+      lineinfile: 
+        path: /etc/ntp.conf
+        state: present
+        regexp: '^pool ' 
+        line: 'pool {{ ntp_server }} iburst'
+        # Updating regex, because I found that ubuntu's config 
+        #  starts with "pool" and not "server".
+        # Matches on lines that start with 'server' then a space.
+        # Matched lines should be replaced with the 'server {{ ntp_server }} iburst'
+        #  line where the ntp_server is defined in the host_vars yaml files,
+        #  because of the 'present' and 'line' keywords.
+      when: ntp_server is defined
+
+    # Note that there may be more than one 'server' line in this file (hence we
+    # cannot do this with just one regexp rule).
+    - name: 'Remove all other ntp servers'
+      lineinfile: 
+        path: /etc/ntp.conf
+        state: absent
+        regexp: '^pool\s+(?!{{ ntp_server }})'
+        # Updating regex, because I found that ubuntu's config 
+        #  starts with "pool" and not "server".
+        # Matches on lines that start with 'server' then a space, then NOT the 
+        #  ntp_server we specify in the host_var yaml file.
+
+        # Matched lines should be removed with the 'absent' keyword
+      when: ntp_server is defined
+
+    # Moving tasks 'Restart ntp' and 'set ntp to run at boot up' to end of playbook
+    #  so that all changes are applied when the playbook is finished.
+    - name: 'Restart ntp'
+      # Restart ntp service for changes
+      service:
+        name: ntp
+        state: restarted
+
+    - name: 'Set ntp to run at boot up'
+      # Use systemctl to start ntp service at boot
+      # Service might need to be writen as ntp.service
+      service:
+        service: ntp
+        enabled: true
+        state: started
+
+# code: language=ansible

@@ -1,0 +1,9 @@
+ntp_timezone:
+  "America/Chicago"
+
+ntp_server:
+  time-b-wwv.nist.gov
+
+
+
+# code: language=ansible
